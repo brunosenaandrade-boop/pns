@@ -87,69 +87,56 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Novo Prestador'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Card(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _prestadores.isEmpty
-                  ? const Center(child: Text('Nenhum prestador cadastrado'))
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('Nome')),
-                            DataColumn(label: Text('Telefone')),
-                            DataColumn(label: Text('Cidade')),
-                            DataColumn(label: Text('Atende')),
-                            DataColumn(label: Text('Avaliacao')),
-                            DataColumn(label: Text('Atendimentos')),
-                            DataColumn(label: Text('Status')),
-                            DataColumn(label: Text('Online')),
-                            DataColumn(label: Text('Acoes')),
-                          ],
-                          rows: _prestadores.map((prestador) {
-                            return DataRow(cells: [
-                              DataCell(Text(prestador['nome_completo'] ?? '-')),
-                              DataCell(Text(_formatPhone(prestador['telefone']))),
-                              DataCell(Text(prestador['cidade'] ?? '-')),
-                              DataCell(_buildAtendeChips(prestador)),
-                              DataCell(Row(
-                                children: [
-                                  const Icon(Icons.star, color: Colors.amber, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text((prestador['avaliacao_media'] ?? 0).toStringAsFixed(1)),
-                                ],
-                              )),
-                              DataCell(Text('${prestador['total_atendimentos'] ?? 0}')),
-                              DataCell(_buildStatusChip(prestador['ativo'] == true)),
-                              DataCell(_buildOnlineChip(prestador['disponivel'] == true)),
-                              DataCell(Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, color: Colors.blue),
-                                    tooltip: 'Editar',
-                                    onPressed: () => _showEditPrestadorDialog(prestador),
-                                  ),
-                                  Switch(
-                                    value: prestador['ativo'] == true,
-                                    onChanged: (value) => _toggleAtivo(prestador['id'], value),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    tooltip: 'Excluir',
-                                    onPressed: () => _confirmarExclusao(prestador),
-                                  ),
-                                ],
-                              )),
-                            ]);
-                          }).toList(),
-                        ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _prestadores.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Nenhum prestador cadastrado',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                       ),
-                    ),
-        ),
-      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Clique no botao "Novo Prestador" para adicionar',
+                        style: TextStyle(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Responsivo: 4 colunas em telas grandes, 2 em medias, 1 em pequenas
+                      int crossAxisCount = 1;
+                      if (constraints.maxWidth > 1200) {
+                        crossAxisCount = 4;
+                      } else if (constraints.maxWidth > 900) {
+                        crossAxisCount = 3;
+                      } else if (constraints.maxWidth > 600) {
+                        crossAxisCount = 2;
+                      }
+
+                      return GridView.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.1,
+                        ),
+                        itemCount: _prestadores.length,
+                        itemBuilder: (context, index) {
+                          return _buildPrestadorCard(_prestadores[index]);
+                        },
+                      );
+                    },
+                  ),
+                ),
     );
   }
 
@@ -223,6 +210,267 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
   void _toggleAtivo(String id, bool ativo) async {
     await AdminService.togglePrestadorAtivo(id, ativo);
     _loadPrestadores();
+  }
+
+  Widget _buildPrestadorCard(Map<String, dynamic> prestador) {
+    final nome = prestador['nome_completo'] ?? 'Sem nome';
+    final telefone = _formatPhone(prestador['telefone']);
+    final cidade = prestador['cidade'] ?? '';
+    final estado = prestador['estado'] ?? '';
+    final localizacao = cidade.isNotEmpty ? '$cidade${estado.isNotEmpty ? ' - $estado' : ''}' : 'Localizacao nao informada';
+    final ativo = prestador['ativo'] == true;
+    final online = prestador['disponivel'] == true;
+    final avaliacao = (prestador['avaliacao_media'] ?? 5.0).toDouble();
+    final atendimentos = prestador['total_atendimentos'] ?? 0;
+    final atendeMoto = prestador['atende_moto'] ?? true;
+    final atendeCarro = prestador['atende_carro'] ?? true;
+
+    // Gerar iniciais para o avatar
+    final palavras = nome.split(' ');
+    final iniciais = palavras.length >= 2
+        ? '${palavras.first[0]}${palavras.last[0]}'.toUpperCase()
+        : nome.substring(0, nome.length >= 2 ? 2 : 1).toUpperCase();
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showEditPrestadorDialog(prestador),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header com avatar, nome e status online
+              Row(
+                children: [
+                  // Avatar
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: ativo ? Colors.blue[100] : Colors.grey[300],
+                    child: Text(
+                      iniciais,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: ativo ? Colors.blue[800] : Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Nome e telefone
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nome,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          telefone,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Indicador online
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: online ? Colors.green : Colors.grey[400],
+                      shape: BoxShape.circle,
+                      boxShadow: online
+                          ? [
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.4),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              )
+                            ]
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Localizacao
+              Row(
+                children: [
+                  Icon(Icons.location_on_outlined, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      localizacao,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+
+              const Spacer(),
+
+              // Chips de tipo de veiculo
+              Row(
+                children: [
+                  if (atendeMoto)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.orange[200]!),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.two_wheeler, size: 14, color: Colors.orange[700]),
+                          const SizedBox(width: 4),
+                          Text('Moto', style: TextStyle(fontSize: 11, color: Colors.orange[700])),
+                        ],
+                      ),
+                    ),
+                  if (atendeCarro)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.directions_car, size: 14, color: Colors.blue[700]),
+                          const SizedBox(width: 4),
+                          Text('Carro', style: TextStyle(fontSize: 11, color: Colors.blue[700])),
+                        ],
+                      ),
+                    ),
+                  const Spacer(),
+                  // Avaliacao
+                  Row(
+                    children: [
+                      const Icon(Icons.star, size: 16, color: Colors.amber),
+                      const SizedBox(width: 2),
+                      Text(
+                        avaliacao.toStringAsFixed(1),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Status e atendimentos
+              Row(
+                children: [
+                  // Chip de status
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: ativo ? Colors.green[50] : Colors.red[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: ativo ? Colors.green[300]! : Colors.red[300]!,
+                      ),
+                    ),
+                    child: Text(
+                      ativo ? 'Ativo' : 'Inativo',
+                      style: TextStyle(
+                        color: ativo ? Colors.green[700] : Colors.red[700],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Atendimentos
+                  Icon(Icons.build_outlined, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$atendimentos atend.',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+
+              const Divider(height: 20),
+
+              // Acoes
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Editar
+                  _buildActionButton(
+                    icon: Icons.edit_outlined,
+                    label: 'Editar',
+                    color: Colors.blue,
+                    onTap: () => _showEditPrestadorDialog(prestador),
+                  ),
+                  // Ativar/Desativar
+                  _buildActionButton(
+                    icon: ativo ? Icons.block : Icons.check_circle_outline,
+                    label: ativo ? 'Desativar' : 'Ativar',
+                    color: ativo ? Colors.orange : Colors.green,
+                    onTap: () => _toggleAtivo(prestador['id'], !ativo),
+                  ),
+                  // Excluir
+                  _buildActionButton(
+                    icon: Icons.delete_outline,
+                    label: 'Excluir',
+                    color: Colors.red,
+                    onTap: () => _confirmarExclusao(prestador),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _confirmarExclusao(Map<String, dynamic> prestador) {
