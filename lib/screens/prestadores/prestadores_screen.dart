@@ -571,83 +571,96 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = screenSize.width > 700 ? 650.0 : screenSize.width * 0.95;
+    final dialogMaxHeight = screenSize.height * 0.9;
+
     return Dialog(
-      child: Container(
-        width: 600,
-        height: 550,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Header
-            Row(
-              children: [
-                Icon(isEditing ? Icons.edit : Icons.person_add, size: 28),
-                const SizedBox(width: 12),
-                Text(
-                  isEditing ? 'Editar Prestador' : 'Novo Prestador',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Tabs
-            TabBar(
-              controller: _tabController,
-              labelColor: Theme.of(context).primaryColor,
-              unselectedLabelColor: Colors.grey,
-              tabs: const [
-                Tab(text: 'Pessoal'),
-                Tab(text: 'Endereco'),
-                Tab(text: 'Trabalho'),
-                Tab(text: 'Pagamento'),
-                Tab(text: 'Docs'),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Tab content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: dialogWidth,
+          maxHeight: dialogMaxHeight,
+          minHeight: 400,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
                 children: [
-                  _buildDadosPessoais(),
-                  _buildEndereco(),
-                  _buildTrabalho(),
-                  _buildPagamento(),
-                  _buildDocumentos(),
+                  Icon(isEditing ? Icons.edit : Icons.person_add, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isEditing ? 'Editar Prestador' : 'Novo Prestador',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ],
               ),
-            ),
+              const SizedBox(height: 16),
 
-            // Actions
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCELAR'),
+              // Tabs
+              TabBar(
+                controller: _tabController,
+                labelColor: Theme.of(context).primaryColor,
+                unselectedLabelColor: Colors.grey,
+                isScrollable: true,
+                tabs: const [
+                  Tab(text: 'Pessoal'),
+                  Tab(text: 'Endereco'),
+                  Tab(text: 'Trabalho'),
+                  Tab(text: 'Pagamento'),
+                  Tab(text: 'Docs'),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Tab content
+              Flexible(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildDadosPessoais(),
+                    _buildEndereco(),
+                    _buildTrabalho(),
+                    _buildPagamento(),
+                    _buildDocumentos(),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _save,
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(isEditing ? 'SALVAR' : 'CADASTRAR'),
-                ),
-              ],
-            ),
-          ],
+              ),
+
+              // Actions
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('CANCELAR'),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _save,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(isEditing ? 'SALVAR' : 'CADASTRAR'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
