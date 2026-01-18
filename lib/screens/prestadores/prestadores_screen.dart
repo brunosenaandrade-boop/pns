@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../services/admin_service.dart';
 
@@ -35,182 +34,44 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
   }
 
   void _showAddPrestadorDialog() {
-    final nomeController = TextEditingController();
-    final telefoneController = TextEditingController();
-    final cpfController = TextEditingController();
-
-    final telefoneMask = MaskTextInputFormatter(
-      mask: '(##) #####-####',
-      filter: {'#': RegExp(r'[0-9]')},
-    );
-
-    final cpfMask = MaskTextInputFormatter(
-      mask: '###.###.###-##',
-      filter: {'#': RegExp(r'[0-9]')},
-    );
-
-    String? telefoneError;
-    String? cpfError;
-    String? nomeError;
-
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Novo Prestador'),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nomeController,
-                  decoration: InputDecoration(
-                    labelText: 'Nome Completo *',
-                    prefixIcon: const Icon(Icons.person),
-                    errorText: nomeError,
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                  onChanged: (_) => setDialogState(() => nomeError = null),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: telefoneController,
-                  inputFormatters: [telefoneMask],
-                  decoration: InputDecoration(
-                    labelText: 'Telefone *',
-                    prefixIcon: const Icon(Icons.phone),
-                    hintText: '(11) 99999-9999',
-                    errorText: telefoneError,
-                  ),
-                  keyboardType: TextInputType.phone,
-                  onChanged: (_) => setDialogState(() => telefoneError = null),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: cpfController,
-                  inputFormatters: [cpfMask],
-                  decoration: InputDecoration(
-                    labelText: 'CPF',
-                    prefixIcon: const Icon(Icons.badge),
-                    hintText: '000.000.000-00',
-                    errorText: cpfError,
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) => setDialogState(() => cpfError = null),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '* Campos obrigatórios',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
+      barrierDismissible: false,
+      builder: (context) => _PrestadorFormDialog(
+        onSaved: () {
+          _loadPrestadores();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Prestador cadastrado com sucesso!'),
+              backgroundColor: Colors.green,
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCELAR'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                bool hasError = false;
-
-                // Validar nome
-                if (nomeController.text.trim().isEmpty) {
-                  setDialogState(() => nomeError = 'Nome é obrigatório');
-                  hasError = true;
-                } else if (nomeController.text.trim().split(' ').length < 2) {
-                  setDialogState(() => nomeError = 'Digite o nome completo');
-                  hasError = true;
-                }
-
-                // Validar telefone
-                final telefoneDigitos = telefoneMask.getUnmaskedText();
-                if (telefoneDigitos.isEmpty) {
-                  setDialogState(() => telefoneError = 'Telefone é obrigatório');
-                  hasError = true;
-                } else if (telefoneDigitos.length < 11) {
-                  setDialogState(() => telefoneError = 'Telefone incompleto (11 dígitos)');
-                  hasError = true;
-                }
-
-                // Validar CPF (opcional, mas se preenchido deve ser válido)
-                final cpfDigitos = cpfMask.getUnmaskedText();
-                if (cpfDigitos.isNotEmpty && cpfDigitos.length < 11) {
-                  setDialogState(() => cpfError = 'CPF incompleto (11 dígitos)');
-                  hasError = true;
-                } else if (cpfDigitos.isNotEmpty && !_validarCPF(cpfDigitos)) {
-                  setDialogState(() => cpfError = 'CPF inválido');
-                  hasError = true;
-                }
-
-                if (hasError) return;
-
-                try {
-                  await AdminService.addPrestador(
-                    nome: nomeController.text.trim(),
-                    telefone: '+55$telefoneDigitos',
-                    cpf: cpfDigitos.isNotEmpty ? cpfController.text : null,
-                  );
-                  Navigator.pop(context);
-                  _loadPrestadores();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Prestador cadastrado com sucesso!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Erro ao cadastrar: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              child: const Text('CADASTRAR'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  bool _validarCPF(String cpf) {
-    if (cpf.length != 11) return false;
-
-    // Verificar se todos os dígitos são iguais
-    if (RegExp(r'^(\d)\1*$').hasMatch(cpf)) return false;
-
-    // Calcular primeiro dígito verificador
-    int soma = 0;
-    for (int i = 0; i < 9; i++) {
-      soma += int.parse(cpf[i]) * (10 - i);
-    }
-    int resto = soma % 11;
-    int digito1 = resto < 2 ? 0 : 11 - resto;
-
-    if (int.parse(cpf[9]) != digito1) return false;
-
-    // Calcular segundo dígito verificador
-    soma = 0;
-    for (int i = 0; i < 10; i++) {
-      soma += int.parse(cpf[i]) * (11 - i);
-    }
-    resto = soma % 11;
-    int digito2 = resto < 2 ? 0 : 11 - resto;
-
-    if (int.parse(cpf[10]) != digito2) return false;
-
-    return true;
+  void _showEditPrestadorDialog(Map<String, dynamic> prestador) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _PrestadorFormDialog(
+        prestador: prestador,
+        onSaved: () {
+          _loadPrestadores();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Prestador atualizado com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('dd/MM/yyyy');
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Prestadores'),
@@ -234,52 +95,100 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
               : _prestadores.isEmpty
                   ? const Center(child: Text('Nenhum prestador cadastrado'))
                   : SingleChildScrollView(
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text('Nome')),
-                          DataColumn(label: Text('Telefone')),
-                          DataColumn(label: Text('CPF')),
-                          DataColumn(label: Text('Avaliação')),
-                          DataColumn(label: Text('Atendimentos')),
-                          DataColumn(label: Text('Status')),
-                          DataColumn(label: Text('Online')),
-                          DataColumn(label: Text('Ações')),
-                        ],
-                        rows: _prestadores.map((prestador) {
-                          return DataRow(cells: [
-                            DataCell(Text(prestador['nome_completo'] ?? '-')),
-                            DataCell(Text(prestador['telefone'] ?? '-')),
-                            DataCell(Text(prestador['cpf'] ?? '-')),
-                            DataCell(Row(
-                              children: [
-                                const Icon(Icons.star, color: Colors.amber, size: 16),
-                                const SizedBox(width: 4),
-                                Text((prestador['avaliacao_media'] ?? 0).toStringAsFixed(1)),
-                              ],
-                            )),
-                            DataCell(Text('${prestador['total_atendimentos'] ?? 0}')),
-                            DataCell(_buildStatusChip(prestador['ativo'] == true)),
-                            DataCell(_buildOnlineChip(prestador['disponivel'] == true)),
-                            DataCell(Row(
-                              children: [
-                                Switch(
-                                  value: prestador['ativo'] == true,
-                                  onChanged: (value) => _toggleAtivo(prestador['id'], value),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  tooltip: 'Excluir prestador',
-                                  onPressed: () => _confirmarExclusao(prestador),
-                                ),
-                              ],
-                            )),
-                          ]);
-                        }).toList(),
+                      scrollDirection: Axis.horizontal,
+                      child: SingleChildScrollView(
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('Nome')),
+                            DataColumn(label: Text('Telefone')),
+                            DataColumn(label: Text('Cidade')),
+                            DataColumn(label: Text('Atende')),
+                            DataColumn(label: Text('Avaliacao')),
+                            DataColumn(label: Text('Atendimentos')),
+                            DataColumn(label: Text('Status')),
+                            DataColumn(label: Text('Online')),
+                            DataColumn(label: Text('Acoes')),
+                          ],
+                          rows: _prestadores.map((prestador) {
+                            return DataRow(cells: [
+                              DataCell(Text(prestador['nome_completo'] ?? '-')),
+                              DataCell(Text(_formatPhone(prestador['telefone']))),
+                              DataCell(Text(prestador['cidade'] ?? '-')),
+                              DataCell(_buildAtendeChips(prestador)),
+                              DataCell(Row(
+                                children: [
+                                  const Icon(Icons.star, color: Colors.amber, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text((prestador['avaliacao_media'] ?? 0).toStringAsFixed(1)),
+                                ],
+                              )),
+                              DataCell(Text('${prestador['total_atendimentos'] ?? 0}')),
+                              DataCell(_buildStatusChip(prestador['ativo'] == true)),
+                              DataCell(_buildOnlineChip(prestador['disponivel'] == true)),
+                              DataCell(Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit, color: Colors.blue),
+                                    tooltip: 'Editar',
+                                    onPressed: () => _showEditPrestadorDialog(prestador),
+                                  ),
+                                  Switch(
+                                    value: prestador['ativo'] == true,
+                                    onChanged: (value) => _toggleAtivo(prestador['id'], value),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    tooltip: 'Excluir',
+                                    onPressed: () => _confirmarExclusao(prestador),
+                                  ),
+                                ],
+                              )),
+                            ]);
+                          }).toList(),
+                        ),
                       ),
                     ),
         ),
       ),
+    );
+  }
+
+  String _formatPhone(String? phone) {
+    if (phone == null) return '-';
+    final digits = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.length == 13) {
+      return '(${digits.substring(2, 4)}) ${digits.substring(4, 9)}-${digits.substring(9)}';
+    }
+    return phone;
+  }
+
+  Widget _buildAtendeChips(Map<String, dynamic> prestador) {
+    final atendeMoto = prestador['atende_moto'] ?? true;
+    final atendeCarro = prestador['atende_carro'] ?? true;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (atendeMoto)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: Colors.orange[100],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text('Moto', style: TextStyle(fontSize: 11)),
+          ),
+        if (atendeCarro)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.blue[100],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text('Carro', style: TextStyle(fontSize: 11)),
+          ),
+      ],
     );
   }
 
@@ -341,7 +250,6 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text('Tel: ${prestador['telefone'] ?? '-'}'),
-                  if (prestador['cpf'] != null) Text('CPF: ${prestador['cpf']}'),
                 ],
               ),
             ),
@@ -383,6 +291,724 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
               }
             },
             child: const Text('EXCLUIR'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Dialog de formulario do prestador
+class _PrestadorFormDialog extends StatefulWidget {
+  final Map<String, dynamic>? prestador;
+  final VoidCallback onSaved;
+
+  const _PrestadorFormDialog({
+    this.prestador,
+    required this.onSaved,
+  });
+
+  @override
+  State<_PrestadorFormDialog> createState() => _PrestadorFormDialogState();
+}
+
+class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+
+  // Controllers - Dados Pessoais
+  final _nomeController = TextEditingController();
+  final _telefoneController = TextEditingController();
+  final _cpfController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _dataNascController = TextEditingController();
+
+  // Controllers - Endereco
+  final _cepController = TextEditingController();
+  final _enderecoController = TextEditingController();
+  final _numeroController = TextEditingController();
+  final _complementoController = TextEditingController();
+  final _bairroController = TextEditingController();
+  final _cidadeController = TextEditingController();
+  String _estado = '';
+
+  // Controllers - Trabalho
+  bool _atendeMoto = true;
+  bool _atendeCarro = true;
+  final _raioController = TextEditingController(text: '10');
+
+  // Controllers - Pagamento
+  String _pixTipo = '';
+  final _pixChaveController = TextEditingController();
+
+  // Controllers - Documentos
+  final _cnhNumeroController = TextEditingController();
+  final _cnhValidadeController = TextEditingController();
+
+  // Controllers - Observacoes
+  final _observacoesController = TextEditingController();
+
+  // Masks
+  final _telefoneMask = MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+  final _cpfMask = MaskTextInputFormatter(
+    mask: '###.###.###-##',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+  final _cepMask = MaskTextInputFormatter(
+    mask: '#####-###',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+  final _dataMask = MaskTextInputFormatter(
+    mask: '##/##/####',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+
+  bool get isEditing => widget.prestador != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 5, vsync: this);
+
+    if (isEditing) {
+      _loadPrestadorData();
+    }
+  }
+
+  void _loadPrestadorData() {
+    final p = widget.prestador!;
+
+    _nomeController.text = p['nome_completo'] ?? '';
+
+    // Formatar telefone
+    final tel = (p['telefone'] ?? '').replaceAll(RegExp(r'[^\d]'), '');
+    if (tel.length >= 11) {
+      final digits = tel.length > 11 ? tel.substring(tel.length - 11) : tel;
+      _telefoneController.text = '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+    }
+
+    _cpfController.text = p['cpf'] ?? '';
+    _emailController.text = p['email'] ?? '';
+
+    if (p['data_nascimento'] != null) {
+      final date = DateTime.tryParse(p['data_nascimento']);
+      if (date != null) {
+        _dataNascController.text = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+      }
+    }
+
+    _cepController.text = p['cep'] ?? '';
+    _enderecoController.text = p['endereco'] ?? '';
+    _numeroController.text = p['numero'] ?? '';
+    _complementoController.text = p['complemento'] ?? '';
+    _bairroController.text = p['bairro'] ?? '';
+    _cidadeController.text = p['cidade'] ?? '';
+    _estado = p['estado'] ?? '';
+
+    _atendeMoto = p['atende_moto'] ?? true;
+    _atendeCarro = p['atende_carro'] ?? true;
+    _raioController.text = (p['raio_atendimento_km'] ?? 10).toString();
+
+    _pixTipo = p['pix_tipo'] ?? '';
+    _pixChaveController.text = p['pix_chave'] ?? '';
+
+    _cnhNumeroController.text = p['cnh_numero'] ?? '';
+    if (p['cnh_validade'] != null) {
+      final date = DateTime.tryParse(p['cnh_validade']);
+      if (date != null) {
+        _cnhValidadeController.text = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+      }
+    }
+
+    _observacoesController.text = p['observacoes'] ?? '';
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  bool _validarCPF(String cpf) {
+    cpf = cpf.replaceAll(RegExp(r'[^\d]'), '');
+    if (cpf.length != 11) return false;
+    if (RegExp(r'^(\d)\1*$').hasMatch(cpf)) return false;
+
+    int soma = 0;
+    for (int i = 0; i < 9; i++) {
+      soma += int.parse(cpf[i]) * (10 - i);
+    }
+    int resto = soma % 11;
+    int digito1 = resto < 2 ? 0 : 11 - resto;
+    if (int.parse(cpf[9]) != digito1) return false;
+
+    soma = 0;
+    for (int i = 0; i < 10; i++) {
+      soma += int.parse(cpf[i]) * (11 - i);
+    }
+    resto = soma % 11;
+    int digito2 = resto < 2 ? 0 : 11 - resto;
+    if (int.parse(cpf[10]) != digito2) return false;
+
+    return true;
+  }
+
+  String? _parseDate(String dateStr) {
+    if (dateStr.isEmpty) return null;
+    final parts = dateStr.split('/');
+    if (parts.length != 3) return null;
+    return '${parts[2]}-${parts[1]}-${parts[0]}';
+  }
+
+  Future<void> _save() async {
+    // Validar campos obrigatorios
+    final nome = _nomeController.text.trim();
+    final telefoneDigits = _telefoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (nome.isEmpty) {
+      _showError('Nome e obrigatorio');
+      _tabController.animateTo(0);
+      return;
+    }
+
+    if (nome.split(' ').length < 2) {
+      _showError('Digite o nome completo');
+      _tabController.animateTo(0);
+      return;
+    }
+
+    if (telefoneDigits.length < 11) {
+      _showError('Telefone invalido');
+      _tabController.animateTo(0);
+      return;
+    }
+
+    final cpfDigits = _cpfController.text.replaceAll(RegExp(r'[^\d]'), '');
+    if (cpfDigits.isNotEmpty && !_validarCPF(cpfDigits)) {
+      _showError('CPF invalido');
+      _tabController.animateTo(0);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final data = {
+        'nome_completo': nome,
+        'telefone': '+55$telefoneDigits',
+        'cpf': cpfDigits.isNotEmpty ? _cpfController.text : null,
+        'email': _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        'data_nascimento': _parseDate(_dataNascController.text),
+        'cep': _cepController.text.isNotEmpty ? _cepController.text : null,
+        'endereco': _enderecoController.text.trim().isNotEmpty ? _enderecoController.text.trim() : null,
+        'numero': _numeroController.text.trim().isNotEmpty ? _numeroController.text.trim() : null,
+        'complemento': _complementoController.text.trim().isNotEmpty ? _complementoController.text.trim() : null,
+        'bairro': _bairroController.text.trim().isNotEmpty ? _bairroController.text.trim() : null,
+        'cidade': _cidadeController.text.trim().isNotEmpty ? _cidadeController.text.trim() : null,
+        'estado': _estado.isNotEmpty ? _estado : null,
+        'atende_moto': _atendeMoto,
+        'atende_carro': _atendeCarro,
+        'raio_atendimento_km': int.tryParse(_raioController.text) ?? 10,
+        'pix_tipo': _pixTipo.isNotEmpty ? _pixTipo : null,
+        'pix_chave': _pixChaveController.text.trim().isNotEmpty ? _pixChaveController.text.trim() : null,
+        'cnh_numero': _cnhNumeroController.text.trim().isNotEmpty ? _cnhNumeroController.text.trim() : null,
+        'cnh_validade': _parseDate(_cnhValidadeController.text),
+        'observacoes': _observacoesController.text.trim().isNotEmpty ? _observacoesController.text.trim() : null,
+      };
+
+      if (isEditing) {
+        await AdminService.updatePrestador(widget.prestador!['id'], data);
+      } else {
+        data['ativo'] = true;
+        data['disponivel'] = false;
+        data['avaliacao_media'] = 5.0;
+        data['total_atendimentos'] = 0;
+        await AdminService.addPrestadorFull(data);
+      }
+
+      Navigator.pop(context);
+      widget.onSaved();
+    } catch (e) {
+      _showError('Erro ao salvar: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 600,
+        height: 550,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            // Header
+            Row(
+              children: [
+                Icon(isEditing ? Icons.edit : Icons.person_add, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  isEditing ? 'Editar Prestador' : 'Novo Prestador',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Tabs
+            TabBar(
+              controller: _tabController,
+              labelColor: Theme.of(context).primaryColor,
+              unselectedLabelColor: Colors.grey,
+              tabs: const [
+                Tab(text: 'Pessoal'),
+                Tab(text: 'Endereco'),
+                Tab(text: 'Trabalho'),
+                Tab(text: 'Pagamento'),
+                Tab(text: 'Docs'),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Tab content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildDadosPessoais(),
+                  _buildEndereco(),
+                  _buildTrabalho(),
+                  _buildPagamento(),
+                  _buildDocumentos(),
+                ],
+              ),
+            ),
+
+            // Actions
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('CANCELAR'),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _save,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(isEditing ? 'SALVAR' : 'CADASTRAR'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDadosPessoais() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _nomeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome Completo *',
+                    prefixIcon: Icon(Icons.person),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _telefoneController,
+                  inputFormatters: [_telefoneMask],
+                  decoration: const InputDecoration(
+                    labelText: 'Telefone *',
+                    prefixIcon: Icon(Icons.phone),
+                    hintText: '(11) 99999-9999',
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _cpfController,
+                  inputFormatters: [_cpfMask],
+                  decoration: const InputDecoration(
+                    labelText: 'CPF',
+                    prefixIcon: Icon(Icons.badge),
+                    hintText: '000.000.000-00',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.email),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _dataNascController,
+                  inputFormatters: [_dataMask],
+                  decoration: const InputDecoration(
+                    labelText: 'Data de Nascimento',
+                    prefixIcon: Icon(Icons.cake),
+                    hintText: 'DD/MM/AAAA',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '* Campos obrigatorios. O telefone sera usado para login no app.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEndereco() {
+    final estados = [
+      'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
+      'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC',
+      'SP', 'SE', 'TO'
+    ];
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _cepController,
+                  inputFormatters: [_cepMask],
+                  decoration: const InputDecoration(
+                    labelText: 'CEP',
+                    prefixIcon: Icon(Icons.location_on),
+                    hintText: '00000-000',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const Expanded(flex: 2, child: SizedBox()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _enderecoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Endereco',
+                    prefixIcon: Icon(Icons.home),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _numeroController,
+                  decoration: const InputDecoration(
+                    labelText: 'Numero',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _complementoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Complemento',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _bairroController,
+                  decoration: const InputDecoration(
+                    labelText: 'Bairro',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _cidadeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Cidade',
+                    prefixIcon: Icon(Icons.location_city),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _estado.isNotEmpty ? _estado : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Estado',
+                  ),
+                  items: estados.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) => setState(() => _estado = v ?? ''),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrabalho() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Tipos de veiculo que atende:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: CheckboxListTile(
+                  title: const Row(
+                    children: [
+                      Icon(Icons.two_wheeler),
+                      SizedBox(width: 8),
+                      Text('Motos'),
+                    ],
+                  ),
+                  value: _atendeMoto,
+                  onChanged: (v) => setState(() => _atendeMoto = v ?? true),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ),
+              Expanded(
+                child: CheckboxListTile(
+                  title: const Row(
+                    children: [
+                      Icon(Icons.directions_car),
+                      SizedBox(width: 8),
+                      Text('Carros'),
+                    ],
+                  ),
+                  value: _atendeCarro,
+                  onChanged: (v) => setState(() => _atendeCarro = v ?? true),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _raioController,
+                  decoration: const InputDecoration(
+                    labelText: 'Raio de Atendimento (km)',
+                    prefixIcon: Icon(Icons.radar),
+                    suffixText: 'km',
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                ),
+              ),
+              const Expanded(flex: 2, child: SizedBox()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'O prestador recebera chamados dentro deste raio.',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPagamento() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Chave PIX para receber pagamentos:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _pixTipo.isNotEmpty ? _pixTipo : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo de Chave',
+                    prefixIcon: Icon(Icons.pix),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'cpf', child: Text('CPF')),
+                    DropdownMenuItem(value: 'telefone', child: Text('Telefone')),
+                    DropdownMenuItem(value: 'email', child: Text('Email')),
+                    DropdownMenuItem(value: 'aleatoria', child: Text('Chave Aleatoria')),
+                  ],
+                  onChanged: (v) => setState(() => _pixTipo = v ?? ''),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _pixChaveController,
+                  decoration: const InputDecoration(
+                    labelText: 'Chave PIX',
+                    prefixIcon: Icon(Icons.key),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Os pagamentos serao enviados automaticamente para esta chave PIX apos a conclusao do atendimento.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentos() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Carteira Nacional de Habilitacao (CNH):',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _cnhNumeroController,
+                  decoration: const InputDecoration(
+                    labelText: 'Numero da CNH',
+                    prefixIcon: Icon(Icons.credit_card),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _cnhValidadeController,
+                  inputFormatters: [_dataMask],
+                  decoration: const InputDecoration(
+                    labelText: 'Validade',
+                    prefixIcon: Icon(Icons.calendar_today),
+                    hintText: 'DD/MM/AAAA',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Observacoes:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _observacoesController,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              hintText: 'Informacoes adicionais sobre o prestador...',
+              border: OutlineInputBorder(),
+            ),
           ),
         ],
       ),

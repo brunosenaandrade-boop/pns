@@ -127,7 +127,7 @@ class AdminService {
     await _client.from('prestadores').delete().eq('id', id);
   }
 
-  // Adicionar novo prestador
+  // Adicionar novo prestador (simples - retrocompatibilidade)
   static Future<void> addPrestador({
     required String nome,
     required String telefone,
@@ -142,6 +142,16 @@ class AdminService {
       'avaliacao_media': 5.0,
       'total_atendimentos': 0,
     });
+  }
+
+  // Adicionar novo prestador (completo)
+  static Future<void> addPrestadorFull(Map<String, dynamic> data) async {
+    await _client.from('prestadores').insert(data);
+  }
+
+  // Atualizar prestador
+  static Future<void> updatePrestador(String id, Map<String, dynamic> data) async {
+    await _client.from('prestadores').update(data).eq('id', id);
   }
 
   // Chamados
