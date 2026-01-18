@@ -322,6 +322,7 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
   final _telefoneController = TextEditingController();
   final _cpfController = TextEditingController();
   final _emailController = TextEditingController();
+  final _senhaController = TextEditingController();
   final _dataNascController = TextEditingController();
 
   // Controllers - Endereco
@@ -468,6 +469,8 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
     // Validar campos obrigatorios
     final nome = _nomeController.text.trim();
     final telefoneDigits = _telefoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final email = _emailController.text.trim();
+    final senha = _senhaController.text;
 
     if (nome.isEmpty) {
       _showError('Nome e obrigatorio');
@@ -487,6 +490,21 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
       return;
     }
 
+    // Email e senha obrigatorios para novo cadastro
+    if (!isEditing) {
+      if (email.isEmpty || !email.contains('@')) {
+        _showError('Email valido e obrigatorio para login');
+        _tabController.animateTo(0);
+        return;
+      }
+
+      if (senha.length < 6) {
+        _showError('Senha deve ter no minimo 6 caracteres');
+        _tabController.animateTo(0);
+        return;
+      }
+    }
+
     final cpfDigits = _cpfController.text.replaceAll(RegExp(r'[^\d]'), '');
     if (cpfDigits.isNotEmpty && !_validarCPF(cpfDigits)) {
       _showError('CPF invalido');
@@ -501,7 +519,6 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
         'nome_completo': nome,
         'telefone': '+55$telefoneDigits',
         'cpf': cpfDigits.isNotEmpty ? _cpfController.text : null,
-        'email': _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
         'data_nascimento': _parseDate(_dataNascController.text),
         'cep': _cepController.text.isNotEmpty ? _cepController.text : null,
         'endereco': _enderecoController.text.trim().isNotEmpty ? _enderecoController.text.trim() : null,
@@ -521,13 +538,20 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
       };
 
       if (isEditing) {
+        data['email'] = email.isNotEmpty ? email : null;
         await AdminService.updatePrestador(widget.prestador!['id'], data);
       } else {
         data['ativo'] = true;
         data['disponivel'] = false;
         data['avaliacao_media'] = 5.0;
         data['total_atendimentos'] = 0;
-        await AdminService.addPrestadorFull(data);
+
+        // Criar usuario Auth e prestador
+        await AdminService.createPrestadorWithAuth(
+          email: email,
+          password: senha,
+          prestadorData: data,
+        );
       }
 
       Navigator.pop(context);
@@ -666,6 +690,33 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
             children: [
               Expanded(
                 child: TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: isEditing ? 'Email' : 'Email * (login)',
+                    prefixIcon: const Icon(Icons.email),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _senhaController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: isEditing ? 'Nova Senha' : 'Senha * (login)',
+                    prefixIcon: const Icon(Icons.lock),
+                    hintText: isEditing ? 'Deixe vazio para manter' : 'Min. 6 caracteres',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
                   controller: _cpfController,
                   inputFormatters: [_cpfMask],
                   decoration: const InputDecoration(
@@ -679,21 +730,6 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
               const SizedBox(width: 16),
               Expanded(
                 child: TextField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
                   controller: _dataNascController,
                   inputFormatters: [_dataMask],
                   decoration: const InputDecoration(
@@ -704,15 +740,29 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
                   keyboardType: TextInputType.number,
                 ),
               ),
-              const Expanded(child: SizedBox()),
             ],
           ),
-          const SizedBox(height: 8),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '* Campos obrigatorios. O telefone sera usado para login no app.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.amber[800], size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    isEditing
+                        ? 'O prestador faz login no app com email e senha.'
+                        : 'O prestador usara email e senha para fazer login no app.',
+                    style: TextStyle(fontSize: 13, color: Colors.amber[900]),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
