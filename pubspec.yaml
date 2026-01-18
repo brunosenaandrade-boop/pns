@@ -1,0 +1,43 @@
+name: seguro_pneu_admin
+description: "Seguro Pneu Pro - Painel Administrativo"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Supabase
+  supabase_flutter: ^2.8.0
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Routing
+  go_router: ^14.6.2
+
+  # UI Components
+  google_fonts: ^6.2.1
+  data_table_2: ^2.5.15
+  fl_chart: ^0.69.2
+  cached_network_image: ^3.4.1
+
+  # Utils
+  intl: ^0.20.1
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
