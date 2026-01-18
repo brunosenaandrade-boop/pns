@@ -275,6 +275,44 @@ class AdminService {
     }).eq('id', assinaturaId);
   }
 
+  // Atualizar cliente
+  static Future<void> updateCliente({
+    required String id,
+    String? nomeCompleto,
+    String? telefone,
+    String? cpf,
+    String? email,
+    String? cep,
+    String? endereco,
+    String? numero,
+    String? complemento,
+    String? bairro,
+    String? cidade,
+    String? estado,
+  }) async {
+    final updateData = <String, dynamic>{};
+
+    if (nomeCompleto != null && nomeCompleto.isNotEmpty) {
+      updateData['nome_completo'] = nomeCompleto;
+    }
+    if (telefone != null && telefone.isNotEmpty) {
+      updateData['telefone'] = telefone;
+    }
+    if (cpf != null) updateData['cpf'] = cpf.isEmpty ? null : cpf;
+    if (email != null) updateData['email'] = email.isEmpty ? null : email;
+    if (cep != null) updateData['cep'] = cep.isEmpty ? null : cep;
+    if (endereco != null) updateData['endereco'] = endereco.isEmpty ? null : endereco;
+    if (numero != null) updateData['numero'] = numero.isEmpty ? null : numero;
+    if (complemento != null) updateData['complemento'] = complemento.isEmpty ? null : complemento;
+    if (bairro != null) updateData['bairro'] = bairro.isEmpty ? null : bairro;
+    if (cidade != null) updateData['cidade'] = cidade.isEmpty ? null : cidade;
+    if (estado != null) updateData['estado'] = estado;
+
+    if (updateData.isEmpty) return;
+
+    await _client.from('usuarios').update(updateData).eq('id', id);
+  }
+
   // Analytics
   static Future<List<Map<String, dynamic>>> getAnalytics({
     required DateTime inicio,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../services/admin_service.dart';
+import '../../services/cep_service.dart';
 
 class PrestadoresScreen extends StatefulWidget {
   const PrestadoresScreen({super.key});
@@ -564,6 +565,7 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _isBuscandoCep = false;
 
   // Controllers - Dados Pessoais
   final _nomeController = TextEditingController();
@@ -674,6 +676,49 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
     }
 
     _observacoesController.text = p['observacoes'] ?? '';
+  }
+
+  Future<void> _buscarCep() async {
+    final cep = _cepController.text;
+    final cepLimpo = cep.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (cepLimpo.length != 8) {
+      _showError('CEP deve ter 8 digitos');
+      return;
+    }
+
+    setState(() => _isBuscandoCep = true);
+
+    try {
+      final resultado = await CepService.buscarCep(cep);
+
+      if (resultado != null) {
+        setState(() {
+          _enderecoController.text = resultado['logradouro'] ?? '';
+          _bairroController.text = resultado['bairro'] ?? '';
+          _cidadeController.text = resultado['localidade'] ?? '';
+          _estado = resultado['uf'];
+          final complemento = resultado['complemento'] ?? '';
+          if (complemento.isNotEmpty && _complementoController.text.isEmpty) {
+            _complementoController.text = complemento;
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Endereco encontrado!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        _showError('CEP nao encontrado');
+      }
+    } catch (e) {
+      _showError('Erro ao buscar CEP');
+    } finally {
+      setState(() => _isBuscandoCep = false);
+    }
   }
 
   @override
@@ -1047,15 +1092,59 @@ class _PrestadorFormDialogState extends State<_PrestadorFormDialog> with SingleT
                 child: TextField(
                   controller: _cepController,
                   inputFormatters: [_cepMask],
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'CEP',
-                    prefixIcon: Icon(Icons.location_on),
+                    prefixIcon: const Icon(Icons.location_on),
                     hintText: '00000-000',
+                    suffixIcon: _isBuscandoCep
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.search),
+                            tooltip: 'Buscar CEP',
+                            onPressed: _buscarCep,
+                          ),
                   ),
                   keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    // Busca automaticamente quando o CEP estiver completo
+                    final cepLimpo = value.replaceAll(RegExp(r'[^\d]'), '');
+                    if (cepLimpo.length == 8) {
+                      _buscarCep();
+                    }
+                  },
                 ),
               ),
-              const Expanded(flex: 2, child: SizedBox()),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Digite o CEP para preencher o endereco automaticamente',
+                          style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
