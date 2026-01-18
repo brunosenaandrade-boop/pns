@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import '../../services/admin_service.dart';
 
 class PrestadoresScreen extends StatefulWidget {
@@ -37,81 +39,172 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
     final telefoneController = TextEditingController();
     final cpfController = TextEditingController();
 
+    final telefoneMask = MaskTextInputFormatter(
+      mask: '(##) #####-####',
+      filter: {'#': RegExp(r'[0-9]')},
+    );
+
+    final cpfMask = MaskTextInputFormatter(
+      mask: '###.###.###-##',
+      filter: {'#': RegExp(r'[0-9]')},
+    );
+
+    String? telefoneError;
+    String? cpfError;
+    String? nomeError;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Novo Prestador'),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nomeController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome Completo',
-                  prefixIcon: Icon(Icons.person),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Novo Prestador'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nomeController,
+                  decoration: InputDecoration(
+                    labelText: 'Nome Completo *',
+                    prefixIcon: const Icon(Icons.person),
+                    errorText: nomeError,
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) => setDialogState(() => nomeError = null),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: telefoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Telefone (com DDD)',
-                  prefixIcon: Icon(Icons.phone),
-                  hintText: '+5511999999999',
+                const SizedBox(height: 16),
+                TextField(
+                  controller: telefoneController,
+                  inputFormatters: [telefoneMask],
+                  decoration: InputDecoration(
+                    labelText: 'Telefone *',
+                    prefixIcon: const Icon(Icons.phone),
+                    hintText: '(11) 99999-9999',
+                    errorText: telefoneError,
+                  ),
+                  keyboardType: TextInputType.phone,
+                  onChanged: (_) => setDialogState(() => telefoneError = null),
                 ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: cpfController,
-                decoration: const InputDecoration(
-                  labelText: 'CPF',
-                  prefixIcon: Icon(Icons.badge),
-                  hintText: '000.000.000-00',
+                const SizedBox(height: 16),
+                TextField(
+                  controller: cpfController,
+                  inputFormatters: [cpfMask],
+                  decoration: InputDecoration(
+                    labelText: 'CPF',
+                    prefixIcon: const Icon(Icons.badge),
+                    hintText: '000.000.000-00',
+                    errorText: cpfError,
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setDialogState(() => cpfError = null),
                 ),
-                keyboardType: TextInputType.number,
-              ),
-            ],
+                const SizedBox(height: 8),
+                const Text(
+                  '* Campos obrigatórios',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCELAR'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nomeController.text.isEmpty || telefoneController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Preencha nome e telefone')),
-                );
-                return;
-              }
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCELAR'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                bool hasError = false;
 
-              try {
-                await AdminService.addPrestador(
-                  nome: nomeController.text,
-                  telefone: telefoneController.text,
-                  cpf: cpfController.text,
-                );
-                Navigator.pop(context);
-                _loadPrestadores();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Prestador cadastrado com sucesso!')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Erro: $e')),
-                );
-              }
-            },
-            child: const Text('CADASTRAR'),
-          ),
-        ],
+                // Validar nome
+                if (nomeController.text.trim().isEmpty) {
+                  setDialogState(() => nomeError = 'Nome é obrigatório');
+                  hasError = true;
+                } else if (nomeController.text.trim().split(' ').length < 2) {
+                  setDialogState(() => nomeError = 'Digite o nome completo');
+                  hasError = true;
+                }
+
+                // Validar telefone
+                final telefoneDigitos = telefoneMask.getUnmaskedText();
+                if (telefoneDigitos.isEmpty) {
+                  setDialogState(() => telefoneError = 'Telefone é obrigatório');
+                  hasError = true;
+                } else if (telefoneDigitos.length < 11) {
+                  setDialogState(() => telefoneError = 'Telefone incompleto (11 dígitos)');
+                  hasError = true;
+                }
+
+                // Validar CPF (opcional, mas se preenchido deve ser válido)
+                final cpfDigitos = cpfMask.getUnmaskedText();
+                if (cpfDigitos.isNotEmpty && cpfDigitos.length < 11) {
+                  setDialogState(() => cpfError = 'CPF incompleto (11 dígitos)');
+                  hasError = true;
+                } else if (cpfDigitos.isNotEmpty && !_validarCPF(cpfDigitos)) {
+                  setDialogState(() => cpfError = 'CPF inválido');
+                  hasError = true;
+                }
+
+                if (hasError) return;
+
+                try {
+                  await AdminService.addPrestador(
+                    nome: nomeController.text.trim(),
+                    telefone: '+55$telefoneDigitos',
+                    cpf: cpfDigitos.isNotEmpty ? cpfController.text : null,
+                  );
+                  Navigator.pop(context);
+                  _loadPrestadores();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Prestador cadastrado com sucesso!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erro ao cadastrar: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('CADASTRAR'),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  bool _validarCPF(String cpf) {
+    if (cpf.length != 11) return false;
+
+    // Verificar se todos os dígitos são iguais
+    if (RegExp(r'^(\d)\1*$').hasMatch(cpf)) return false;
+
+    // Calcular primeiro dígito verificador
+    int soma = 0;
+    for (int i = 0; i < 9; i++) {
+      soma += int.parse(cpf[i]) * (10 - i);
+    }
+    int resto = soma % 11;
+    int digito1 = resto < 2 ? 0 : 11 - resto;
+
+    if (int.parse(cpf[9]) != digito1) return false;
+
+    // Calcular segundo dígito verificador
+    soma = 0;
+    for (int i = 0; i < 10; i++) {
+      soma += int.parse(cpf[i]) * (11 - i);
+    }
+    resto = soma % 11;
+    int digito2 = resto < 2 ? 0 : 11 - resto;
+
+    if (int.parse(cpf[10]) != digito2) return false;
+
+    return true;
   }
 
   @override
