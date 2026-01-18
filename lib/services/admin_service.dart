@@ -123,6 +123,10 @@ class AdminService {
     await _client.from('prestadores').update({'ativo': ativo}).eq('id', id);
   }
 
+  static Future<void> deletePrestador(String id) async {
+    await _client.from('prestadores').delete().eq('id', id);
+  }
+
   // Adicionar novo prestador
   static Future<void> addPrestador({
     required String nome,

@@ -266,6 +266,12 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
                                   value: prestador['ativo'] == true,
                                   onChanged: (value) => _toggleAtivo(prestador['id'], value),
                                 ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  tooltip: 'Excluir prestador',
+                                  onPressed: () => _confirmarExclusao(prestador),
+                                ),
                               ],
                             )),
                           ]);
@@ -308,5 +314,78 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
   void _toggleAtivo(String id, bool ativo) async {
     await AdminService.togglePrestadorAtivo(id, ativo);
     _loadPrestadores();
+  }
+
+  void _confirmarExclusao(Map<String, dynamic> prestador) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Exclusao'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tem certeza que deseja excluir este prestador?'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    prestador['nome_completo'] ?? '-',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text('Tel: ${prestador['telefone'] ?? '-'}'),
+                  if (prestador['cpf'] != null) Text('CPF: ${prestador['cpf']}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Esta acao nao pode ser desfeita!',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await AdminService.deletePrestador(prestador['id']);
+                _loadPrestadores();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Prestador excluido com sucesso!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Erro ao excluir: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('EXCLUIR'),
+          ),
+        ],
+      ),
+    );
   }
 }
