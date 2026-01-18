@@ -32,6 +32,88 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
     }
   }
 
+  void _showAddPrestadorDialog() {
+    final nomeController = TextEditingController();
+    final telefoneController = TextEditingController();
+    final cpfController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Novo Prestador'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nomeController,
+                decoration: const InputDecoration(
+                  labelText: 'Nome Completo',
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: telefoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Telefone (com DDD)',
+                  prefixIcon: Icon(Icons.phone),
+                  hintText: '+5511999999999',
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: cpfController,
+                decoration: const InputDecoration(
+                  labelText: 'CPF',
+                  prefixIcon: Icon(Icons.badge),
+                  hintText: '000.000.000-00',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nomeController.text.isEmpty || telefoneController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Preencha nome e telefone')),
+                );
+                return;
+              }
+
+              try {
+                await AdminService.addPrestador(
+                  nome: nomeController.text,
+                  telefone: telefoneController.text,
+                  cpf: cpfController.text,
+                );
+                Navigator.pop(context);
+                _loadPrestadores();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Prestador cadastrado com sucesso!')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erro: $e')),
+                );
+              }
+            },
+            child: const Text('CADASTRAR'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd/MM/yyyy');
@@ -45,6 +127,11 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
             onPressed: _loadPrestadores,
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddPrestadorDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('Novo Prestador'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),

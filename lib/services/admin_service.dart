@@ -123,6 +123,23 @@ class AdminService {
     await _client.from('prestadores').update({'ativo': ativo}).eq('id', id);
   }
 
+  // Adicionar novo prestador
+  static Future<void> addPrestador({
+    required String nome,
+    required String telefone,
+    String? cpf,
+  }) async {
+    await _client.from('prestadores').insert({
+      'nome_completo': nome,
+      'telefone': telefone.startsWith('+') ? telefone : '+55$telefone',
+      'cpf': cpf,
+      'ativo': true,
+      'disponivel': false,
+      'avaliacao_media': 5.0,
+      'total_atendimentos': 0,
+    });
+  }
+
   // Chamados
   static Future<List<Map<String, dynamic>>> getChamados({
     int page = 0,
