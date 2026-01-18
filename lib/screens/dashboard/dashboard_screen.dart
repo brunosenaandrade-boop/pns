@@ -24,12 +24,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadMetrics() async {
     try {
       final metrics = await AdminService.getDashboardMetrics();
-      setState(() {
-        _metrics = metrics;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _metrics = metrics;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _metrics = {
+            'total_usuarios': 0,
+            'total_assinaturas_ativas': 0,
+            'total_chamados': 0,
+            'receita_total': 0.0,
+            'assinaturas_por_plano': <String, int>{},
+            'chamados_por_status': <String, int>{},
+            'acessos_app': 0,
+          };
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -55,104 +70,127 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Cards de métricas
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricCard(
-                          title: 'Total de Clientes',
-                          value: '${_metrics['total_usuarios'] ?? 0}',
-                          icon: Icons.people,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _MetricCard(
-                          title: 'Assinaturas Ativas',
-                          value: '${_metrics['total_assinaturas_ativas'] ?? 0}',
-                          icon: Icons.card_membership,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _MetricCard(
-                          title: 'Chamados (30 dias)',
-                          value: '${_metrics['total_chamados'] ?? 0}',
-                          icon: Icons.sos,
-                          color: Colors.orange,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _MetricCard(
-                          title: 'Receita (30 dias)',
-                          value: currencyFormat.format(_metrics['receita_total'] ?? 0),
-                          icon: Icons.attach_money,
-                          color: Colors.purple,
-                        ),
-                      ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 800;
+                      final cardWidth = isWide
+                          ? (constraints.maxWidth - 48) / 4
+                          : (constraints.maxWidth - 16) / 2;
+
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          SizedBox(
+                            width: cardWidth,
+                            child: _MetricCard(
+                              title: 'Total de Clientes',
+                              value: '${_metrics['total_usuarios'] ?? 0}',
+                              icon: Icons.people,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _MetricCard(
+                              title: 'Assinaturas Ativas',
+                              value: '${_metrics['total_assinaturas_ativas'] ?? 0}',
+                              icon: Icons.card_membership,
+                              color: Colors.green,
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _MetricCard(
+                              title: 'Chamados (30 dias)',
+                              value: '${_metrics['total_chamados'] ?? 0}',
+                              icon: Icons.sos,
+                              color: Colors.orange,
+                            ),
+                          ),
+                          SizedBox(
+                            width: cardWidth,
+                            child: _MetricCard(
+                              title: 'Receita (30 dias)',
+                              value: currencyFormat.format(_metrics['receita_total'] ?? 0),
+                              icon: Icons.attach_money,
+                              color: Colors.purple,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
 
                   // Gráficos
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Assinaturas por plano
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Assinaturas por Plano',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                SizedBox(
-                                  height: 200,
-                                  child: _buildPieChart(),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 700;
+                      final chartWidth = isWide
+                          ? (constraints.maxWidth - 16) / 2
+                          : constraints.maxWidth;
 
-                      // Chamados por status
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Chamados por Status',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: [
+                          // Assinaturas por plano
+                          SizedBox(
+                            width: chartWidth,
+                            child: Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Assinaturas por Plano',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    SizedBox(
+                                      height: 200,
+                                      child: _buildPieChart(),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 24),
-                                SizedBox(
-                                  height: 200,
-                                  child: _buildBarChart(),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
+
+                          // Chamados por status
+                          SizedBox(
+                            width: chartWidth,
+                            child: Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Chamados por Status',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    SizedBox(
+                                      height: 200,
+                                      child: _buildBarChart(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
 

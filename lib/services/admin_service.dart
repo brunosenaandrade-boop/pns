@@ -5,97 +5,85 @@ class AdminService {
 
   // Dashboard metrics
   static Future<Map<String, dynamic>> getDashboardMetrics() async {
+    // Retorna valores padrão - queries serão feitas quando houver dados
+    int totalUsuarios = 0;
+    int totalAssinaturasAtivas = 0;
+    int totalChamados = 0;
+    double receitaTotal = 0.0;
+    Map<String, int> assinaturasPorPlano = {};
+    Map<String, int> chamadosPorStatus = {};
+    int acessosApp = 0;
+
+    final data30DiasAtras = DateTime.now().subtract(const Duration(days: 30));
+
+    // Total de usuários
     try {
-      // Total de usuários
-      final usuariosResponse = await _client
-          .from('usuarios')
-          .select('id')
-          .count();
-      final totalUsuarios = usuariosResponse.count;
+      final usuariosData = await _client.from('usuarios').select('id');
+      totalUsuarios = (usuariosData as List).length;
+    } catch (_) {}
 
-      // Assinaturas ativas
-      final assinaturasResponse = await _client
+    // Assinaturas ativas
+    try {
+      final assinaturasData = await _client
           .from('assinaturas')
-          .select('id')
-          .eq('status', 'ativo')
-          .count();
-      final totalAssinaturasAtivas = assinaturasResponse.count;
+          .select('id, planos(nome)')
+          .eq('status', 'ativo');
+      totalAssinaturasAtivas = (assinaturasData as List).length;
 
-      // Chamados últimos 30 dias
-      final data30DiasAtras = DateTime.now().subtract(const Duration(days: 30));
-      final chamadosResponse = await _client
+      // Contar por plano
+      for (var a in assinaturasData) {
+        final planoNome = a['planos']?['nome'] ?? 'Desconhecido';
+        assinaturasPorPlano[planoNome] = (assinaturasPorPlano[planoNome] ?? 0) + 1;
+      }
+    } catch (_) {}
+
+    // Chamados últimos 30 dias
+    try {
+      final chamadosData = await _client
           .from('chamados')
-          .select('id')
-          .gte('criado_em', data30DiasAtras.toIso8601String())
-          .count();
-      final totalChamados = chamadosResponse.count;
+          .select('id, status')
+          .gte('criado_em', data30DiasAtras.toIso8601String());
+      totalChamados = (chamadosData as List).length;
 
-      // Receita dos últimos 30 dias
+      // Contar por status
+      for (var c in chamadosData) {
+        final status = c['status'] ?? 'desconhecido';
+        chamadosPorStatus[status] = (chamadosPorStatus[status] ?? 0) + 1;
+      }
+    } catch (_) {}
+
+    // Receita dos últimos 30 dias
+    try {
       final pagamentosData = await _client
           .from('pagamentos')
           .select('valor')
           .eq('status', 'aprovado')
           .gte('criado_em', data30DiasAtras.toIso8601String());
 
-      double receitaTotal = 0;
       for (var p in pagamentosData) {
         receitaTotal += (p['valor'] as num?)?.toDouble() ?? 0;
       }
+    } catch (_) {}
 
-      // Assinaturas por plano
-      final assinaturasPorPlanoData = await _client
-          .from('assinaturas')
-          .select('planos(nome)')
-          .eq('status', 'ativo');
-
-      final assinaturasPorPlano = <String, int>{};
-      for (var a in assinaturasPorPlanoData) {
-        final planoNome = a['planos']?['nome'] ?? 'Desconhecido';
-        assinaturasPorPlano[planoNome] = (assinaturasPorPlano[planoNome] ?? 0) + 1;
-      }
-
-      // Chamados por status
-      final chamadosPorStatusData = await _client
-          .from('chamados')
-          .select('status')
-          .gte('criado_em', data30DiasAtras.toIso8601String());
-
-      final chamadosPorStatus = <String, int>{};
-      for (var c in chamadosPorStatusData) {
-        final status = c['status'] ?? 'desconhecido';
-        chamadosPorStatus[status] = (chamadosPorStatus[status] ?? 0) + 1;
-      }
-
-      // Acessos ao app (analytics)
-      final acessosResponse = await _client
+    // Acessos ao app (analytics) - pode não existir a tabela
+    try {
+      final acessosData = await _client
           .from('analytics')
           .select('id')
           .eq('evento', 'app_aberto')
-          .gte('criado_em', data30DiasAtras.toIso8601String())
-          .count();
-      final acessosApp = acessosResponse.count;
+          .gte('criado_em', data30DiasAtras.toIso8601String());
+      acessosApp = (acessosData as List).length;
+    } catch (_) {}
 
-      return {
-        'total_usuarios': totalUsuarios,
-        'total_assinaturas_ativas': totalAssinaturasAtivas,
-        'total_chamados': totalChamados,
-        'receita_total': receitaTotal,
-        'assinaturas_por_plano': assinaturasPorPlano,
-        'chamados_por_status': chamadosPorStatus,
-        'acessos_app': acessosApp,
-      };
-    } catch (e) {
-      // Em caso de erro, retorna valores padrão
-      return {
-        'total_usuarios': 0,
-        'total_assinaturas_ativas': 0,
-        'total_chamados': 0,
-        'receita_total': 0.0,
-        'assinaturas_por_plano': <String, int>{},
-        'chamados_por_status': <String, int>{},
-        'acessos_app': 0,
-      };
-    }
+    return {
+      'total_usuarios': totalUsuarios,
+      'total_assinaturas_ativas': totalAssinaturasAtivas,
+      'total_chamados': totalChamados,
+      'receita_total': receitaTotal,
+      'assinaturas_por_plano': assinaturasPorPlano,
+      'chamados_por_status': chamadosPorStatus,
+      'acessos_app': acessosApp,
+    };
   }
 
   // Clientes
