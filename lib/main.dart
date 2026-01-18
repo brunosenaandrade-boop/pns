@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/theme.dart';
 import 'services/supabase_service.dart';
+import 'providers/auth_provider.dart';
 import 'widgets/admin_shell.dart';
+import 'screens/login/login_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/clientes/clientes_screen.dart';
 import 'screens/prestadores/prestadores_screen.dart';
@@ -17,9 +19,35 @@ void main() async {
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+
   return GoRouter(
-    initialLocation: '/dashboard',
+    initialLocation: '/login',
+    redirect: (context, state) {
+      final isLoading = authState.isLoading;
+      final isAuthenticated = authState.isAuthenticated;
+      final isLoginRoute = state.uri.path == '/login';
+
+      // Still loading, don't redirect
+      if (isLoading) return null;
+
+      // Not authenticated and not on login page, redirect to login
+      if (!isAuthenticated && !isLoginRoute) {
+        return '/login';
+      }
+
+      // Authenticated and on login page, redirect to dashboard
+      if (isAuthenticated && isLoginRoute) {
+        return '/dashboard';
+      }
+
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) => AdminShell(child: child),
         routes: [
