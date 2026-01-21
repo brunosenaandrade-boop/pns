@@ -44,6 +44,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           };
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar metricas: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

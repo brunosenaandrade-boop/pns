@@ -29,7 +29,107 @@ class _PagamentosScreenState extends State<PagamentosScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar pagamentos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  void _verComprovante(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(4),
+                    topRight: Radius.circular(4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.receipt, color: Colors.white),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Comprovante de Pagamento',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              // Imagem
+              Flexible(
+                child: InteractiveViewer(
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, size: 64, color: Colors.red),
+                            SizedBox(height: 16),
+                            Text('Erro ao carregar imagem'),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              // Footer
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('FECHAR'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -145,9 +245,7 @@ class _PagamentosScreenState extends State<PagamentosScreen> {
                               // Comprovante
                               if (pagamento['comprovante_url'] != null)
                                 OutlinedButton.icon(
-                                  onPressed: () {
-                                    // Abrir comprovante
-                                  },
+                                  onPressed: () => _verComprovante(pagamento['comprovante_url']),
                                   icon: const Icon(Icons.receipt),
                                   label: const Text('Ver Comprovante'),
                                 ),
@@ -221,14 +319,27 @@ class _PagamentosScreenState extends State<PagamentosScreen> {
     );
 
     if (confirmed == true) {
-      await AdminService.aprovarPagamento(pagamentoId, assinaturaId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pagamento aprovado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      _loadPagamentos();
+      try {
+        await AdminService.aprovarPagamento(pagamentoId, assinaturaId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pagamento aprovado com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        _loadPagamentos();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao aprovar pagamento: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -253,14 +364,27 @@ class _PagamentosScreenState extends State<PagamentosScreen> {
     );
 
     if (confirmed == true) {
-      await AdminService.rejeitarPagamento(pagamentoId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pagamento rejeitado'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      _loadPagamentos();
+      try {
+        await AdminService.rejeitarPagamento(pagamentoId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pagamento rejeitado'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        _loadPagamentos();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao rejeitar pagamento: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 }

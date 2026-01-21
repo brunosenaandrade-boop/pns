@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/admin_service.dart';
 import '../../services/cep_service.dart';
+import '../../core/validators.dart';
 
 class ClientesScreen extends StatefulWidget {
   const ClientesScreen({super.key});
@@ -754,7 +755,7 @@ class _EditClienteDialogState extends State<_EditClienteDialog> {
                           prefixIcon: Icon(Icons.person),
                           border: OutlineInputBorder(),
                         ),
-                        validator: (v) => v?.isEmpty == true ? 'Obrigatório' : null,
+                        validator: Validators.validateFullName,
                       ),
                       const SizedBox(height: 12),
 
@@ -768,6 +769,7 @@ class _EditClienteDialogState extends State<_EditClienteDialog> {
                                 prefixIcon: Icon(Icons.badge),
                                 border: OutlineInputBorder(),
                               ),
+                              validator: Validators.validateCPF,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -779,7 +781,7 @@ class _EditClienteDialogState extends State<_EditClienteDialog> {
                                 prefixIcon: Icon(Icons.phone),
                                 border: OutlineInputBorder(),
                               ),
-                              validator: (v) => v?.isEmpty == true ? 'Obrigatório' : null,
+                              validator: Validators.validatePhone,
                             ),
                           ),
                         ],
@@ -793,6 +795,7 @@ class _EditClienteDialogState extends State<_EditClienteDialog> {
                           prefixIcon: Icon(Icons.email),
                           border: OutlineInputBorder(),
                         ),
+                        validator: Validators.validateEmail,
                       ),
 
                       const SizedBox(height: 24),

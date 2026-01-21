@@ -31,6 +31,14 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar prestadores: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -208,9 +216,52 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
     );
   }
 
-  void _toggleAtivo(String id, bool ativo) async {
-    await AdminService.togglePrestadorAtivo(id, ativo);
-    _loadPrestadores();
+  void _toggleAtivo(String id, bool ativo, String nome) async {
+    final acao = ativo ? 'ativar' : 'desativar';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${ativo ? 'Ativar' : 'Desativar'} Prestador'),
+        content: Text('Tem certeza que deseja $acao o prestador "$nome"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCELAR'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ativo ? Colors.green : Colors.orange,
+            ),
+            child: Text(ativo ? 'ATIVAR' : 'DESATIVAR'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await AdminService.togglePrestadorAtivo(id, ativo);
+        _loadPrestadores();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Prestador ${ativo ? 'ativado' : 'desativado'} com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erro ao $acao prestador: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildPrestadorCard(Map<String, dynamic> prestador) {
@@ -430,7 +481,7 @@ class _PrestadoresScreenState extends State<PrestadoresScreen> {
                     icon: ativo ? Icons.block : Icons.check_circle_outline,
                     label: ativo ? 'Desativar' : 'Ativar',
                     color: ativo ? Colors.orange : Colors.green,
-                    onTap: () => _toggleAtivo(prestador['id'], !ativo),
+                    onTap: () => _toggleAtivo(prestador['id'], !ativo, nome),
                   ),
                   // Excluir
                   _buildActionButton(

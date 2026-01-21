@@ -40,6 +40,14 @@ class _ChamadosScreenState extends State<ChamadosScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar chamados: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

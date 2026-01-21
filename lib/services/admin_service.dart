@@ -1,10 +1,23 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'supabase_service.dart';
 import '../core/constants.dart';
 
 class AdminService {
   static final _client = SupabaseService.client;
+
+  // URL base para Edge Functions
+  static String get _functionsUrl => '${AppConstants.supabaseUrl}/functions/v1';
+
+  // Obter token do usuario autenticado
+  static String? get _authToken => _client.auth.currentSession?.accessToken;
+
+  // Headers para chamar Edge Functions
+  static Map<String, String> get _functionHeaders => {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ${_authToken ?? ''}',
+  };
 
   // Dashboard metrics
   static Future<Map<String, dynamic>> getDashboardMetrics() async {
@@ -152,52 +165,28 @@ class AdminService {
     await _client.from('prestadores').insert(data);
   }
 
-  // Criar prestador com usuario Auth (email/senha)
+  // Criar prestador com usuario Auth (email/senha) via Edge Function
   static Future<void> createPrestadorWithAuth({
     required String email,
     required String password,
     required Map<String, dynamic> prestadorData,
   }) async {
-    // 1. Criar usuario no Supabase Auth via Admin API
     final response = await http.post(
-      Uri.parse('${AppConstants.supabaseUrl}/auth/v1/admin/users'),
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': AppConstants.supabaseServiceKey,
-        'Authorization': 'Bearer ${AppConstants.supabaseServiceKey}',
-      },
+      Uri.parse('$_functionsUrl/admin-create-prestador'),
+      headers: _functionHeaders,
       body: jsonEncode({
         'email': email,
         'password': password,
-        'email_confirm': true,
+        'prestadorData': prestadorData,
       }),
     );
 
-    if (response.statusCode != 200 && response.statusCode != 201) {
+    if (response.statusCode != 200) {
       final error = jsonDecode(response.body);
-      throw Exception(error['msg'] ?? 'Erro ao criar usuario');
+      throw Exception(error['error'] ?? 'Erro ao criar prestador');
     }
 
-    final userData = jsonDecode(response.body);
-    final userId = userData['id'];
-
-    // 2. Inserir prestador com user_id
-    prestadorData['user_id'] = userId;
-    prestadorData['email'] = email;
-
-    try {
-      await _client.from('prestadores').insert(prestadorData);
-    } catch (e) {
-      // Se falhar, deletar o usuario criado
-      await http.delete(
-        Uri.parse('${AppConstants.supabaseUrl}/auth/v1/admin/users/$userId'),
-        headers: {
-          'apikey': AppConstants.supabaseServiceKey,
-          'Authorization': 'Bearer ${AppConstants.supabaseServiceKey}',
-        },
-      );
-      rethrow;
-    }
+    debugPrint('AdminService: Prestador criado com sucesso');
   }
 
   // Atualizar prestador
@@ -205,17 +194,23 @@ class AdminService {
     await _client.from('prestadores').update(data).eq('id', id);
   }
 
-  // Atualizar senha do prestador
-  static Future<void> updatePrestadorPassword(String odUserId, String newPassword) async {
-    await http.put(
-      Uri.parse('${AppConstants.supabaseUrl}/auth/v1/admin/users/$odUserId'),
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': AppConstants.supabaseServiceKey,
-        'Authorization': 'Bearer ${AppConstants.supabaseServiceKey}',
-      },
-      body: jsonEncode({'password': newPassword}),
+  // Atualizar senha do prestador via Edge Function
+  static Future<void> updatePrestadorPassword(String userId, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('$_functionsUrl/admin-update-password'),
+      headers: _functionHeaders,
+      body: jsonEncode({
+        'userId': userId,
+        'newPassword': newPassword,
+      }),
     );
+
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Erro ao atualizar senha');
+    }
+
+    debugPrint('AdminService: Senha atualizada com sucesso');
   }
 
   // Chamados
